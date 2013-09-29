@@ -1,62 +1,62 @@
 ;
-	*=$5800
+	org $5800
 ;
 ; Interlaced pic displayer
 ; 
 ; Uses Method 1 - do nothing on non-interlace fields
 ;
-brkflag	= $11
-attract	= $4d
-ramtop	= $6a 
-ztemp1	= $e0
-ztemp2	= $e2
-ztemp3	= $e4
-screen1	= $9c40 ; ***** Temporarily use normal screen RAM *****
-vscount	= $04 ; must be zero-page (timing)
-sdmctl	= $22f
-sdslst	= $230
-gprior	= $26f
-chbas = $2f4
-ichid	= $340
-iccom	= $342
-icba	= $344
-icbl	= $348
-icax1	= $34a
-icax2	= $34b
+brkflag	equ $11
+attract	equ $4d
+ramtop	equ $6a
+ztemp1	equ $e0
+ztemp2	equ $e2
+ztemp3	equ $e4
+screen1	equ $9c40 ; ***** Temporarily use normal screen RAM *****
+vscount	equ $04 ; must be zero-page (timing)
+sdmctl	equ $22f
+sdslst	equ $230
+gprior	equ $26f
+chbas equ $2f4
+ichid	equ $340
+iccom	equ $342
+icba	equ $344
+icbl	equ $348
+icax1	equ $34a
+icax2	equ $34b
 ;
-pal	= $d014
-colpf1	= $d017
-colpf2	= $d018
-colbak	= $d01a
-prior	= $d01b
-consol	= $d01f
-porta	= $d300
-pactl	= $d302
-dmactl	= $d400
-dlistl	= $d402
-dlisth	= $d403
-hscrol	= $d404
-vscrol	= $d405
-chbase	= $d409
-wsync	= $d40a
-vcount	= $d40b
-nmien	= $d40e
+pal	equ $d014
+colpf1	equ $d017
+colpf2	equ $d018
+colbak	equ $d01a
+prior	equ $d01b
+consol	equ $d01f
+porta	equ $d300
+pactl	equ $d302
+dmactl	equ $d400
+dlistl	equ $d402
+dlisth	equ $d403
+hscrol	equ $d404
+vscrol	equ $d405
+chbase	equ $d409
+wsync	equ $d40a
+vcount	equ $d40b
+nmien	equ $d40e
 ;
 ; VBXE stuff
-vbxe	= $cb ; Pointer to VBXE page (=$d600 or $d700)
-vbxe_bank = $cd ; Current bank in VBXE
+vbxe	equ $cb ; Pointer to VBXE page (=$d600 or $d700)
+vbxe_bank equ $cd ; Current bank in VBXE
 ;
-vb_video_control = $40
-vb_xdl_adr	= $41
-vb_csel	= $44 ; Color select
-vb_psel = $45 ; Palette select
-vb_cr	= $46
-vb_cg	= $47
-vb_cb	= $48 ; RGB registers
+vb_video_control equ $40
+vb_xdl_adr	equ $41
+vb_csel	equ $44 ; Color select
+vb_psel equ $45 ; Palette select
+vb_cr	equ $46
+vb_cg	equ $47
+vb_cb	equ $48 ; RGB registers
 
-vb_memac_b_control = $5d ; Control for old banking scheme
-vb_memac_control = $5e ; MEMAC A Control
-vb_memac_bank_sel = $5f ; Bank select for MEMAC A
+vb_memac_b_control equ $5d ; Control for old banking scheme
+vb_memac_control equ $5e ; MEMAC A Control
+vb_memac_bank_sel equ $5f ; Bank select for MEMAC A
 
 ;
 ; Jump tables
@@ -114,11 +114,11 @@ vb_setcolours
 	tax
 	and #1
 	eor fieldswap
-	asl
-	asl
+	asl @
+	asl @
 	sta choffset ; Chbase offset
 	txa
-	lsr a
+	lsr @
 	bcc vblank2
 	jmp vblankend
 vblank2
@@ -136,6 +136,7 @@ not_ntsc
 	sta $d01a
 	sta wsync
 ;	sta porta
+switchval equ *
 	ldy #3
 	sta wsync
 	sta porta
@@ -199,9 +200,9 @@ vblankend
 	lda #$80
 	sta wsync
 ;	sta porta
-	.byte 234,234,234,234
-	.byte 234,234,234,234
-	.byte 234,234,234,234
+	dta  234,234,234,234
+	dta  234,234,234,234
+	dta  234,234,234,234
 	jmp $e45f
 ;
 ; Switch screen base
@@ -209,8 +210,8 @@ vblankend
 doscreen
 	lda 20
 	and #1
-	asl a
-	asl a
+	asl @
+	asl @
 	tax
 	ldy #vb_xdl_adr
 	lda xdl_table,x
@@ -222,16 +223,16 @@ doscreen
 	iny
 	sta (vbxe),y
 	rts
-; bitmap_table	.word $7000,$8000
-fieldswap  .byte 0
-choffset   .byte 0
-savesdmctl .byte 0
-load_count  .byte 2 ; load counter for 4K segments
-; mpindex	.byte 0
-; message_end_ptr .word 0
-; scrollspeed	.byte 0
-; message1_fine	.byte 0
-	.word 0,0,0,0,0,0,0,0
+; bitmap_table	dta a($7000,$8000)
+fieldswap  dta  0
+choffset   dta  0
+savesdmctl dta  0
+load_count  dta  2 ; load counter for 4K segments
+; mpindex	dta  0
+; message_end_ptr dta a(0)
+; scrollspeed	dta  0
+; message1_fine	dta  0
+	dta a(0,0,0,0,0,0,0,0)
 ;
 ; First DLI - enable normal screen DMA
 ;
@@ -266,8 +267,8 @@ dli_last
 	rti
 ;
 xdl_table
-	.byte 0,0,0,0 ; first xdl at $000000
-	.byte 0,2,0,0 ; second xdl at $000200
+	dta  0,0,0,0 ; first xdl at $000000
+	dta  0,2,0,0 ; second xdl at $000200
 ;
 ; INIT segment for multipart load of BMPs for VBXE
 ;
@@ -467,67 +468,80 @@ display_pic
 	lda #$d8
 	sta colpf1
 display_pic_wait
+	lda $d209
+	ldx #3
+	cmp #$08   ;'O'
+	sne:ldx #0
+	stx switchval+1
 	jmp display_pic_wait ; Just loop for now
 ;
 dl_vbnotfound
-	.byte $70,$70,$70,$70,$70
-	.byte $46
-	.word txt_vbnotfound
-	.byte $40,6,$41
-	.word dl_vbnotfound
+	dta  $70,$70,$70,$70,$70
+	dta  $46
+	dta a(txt_vbnotfound)
+	dta  $40,6,$41
+	dta a(dl_vbnotfound)
 txt_vbnotfound
-	.sbyte "   vbxe not found   "
-	.sbyte "  PRESS RESET       "
+	dta d"   vbxe not found   "
+	dta d"  PRESS RESET       "
 dl_vbfound
-	.byte $70,$70,$70,$70,$70
-	.byte $46
-	.word txt_vbfound
-	.byte $41
-	.word dl_vbfound
+	dta  $70,$70,$70,$70,$70
+	dta  $46
+	dta  a(txt_vbfound)
+	dta  $41
+	dta  a(dl_vbfound)
 txt_vbfound
-	.sbyte " VBXE FOUND AT $D640"
-foundat_txt = *-3
+	dta d" VBXE FOUND AT $D640"
+foundat_txt equ *-3
 ;
 ; DList for when picture is displayed
 ;
 dl_main
-	.byte 112,112,$f0,112,112 ; DLI1 here
-	.byte 112,112,112,112,112
-	.byte 112,112,112,112,112
-	.byte 112,112,112,112,112
-	.byte 112,112,112,112,112
-	.byte 112,112,112 ; 28 blank chr rows
-	.byte $c2 ; LMS 2
-	.word txt_main1
-	.byte $cf ; LMS F
-	.word blank40
-	.byte 0,$41
-	.word dl_main
+	dta  112,112,$f0,112,112 ; DLI1 here
+	dta  112,112,112,112,112
+	dta  112,112,112,112,112
+	dta  112,112,112,112,112
+	dta  112,112,112,112,112
+	dta  112,112,112 ; 28 blank chr rows
+	dta  $c2 ; LMS 2
+	dta  a(txt_main1)
+	dta  $cf ; LMS F
+	dta a(blank40)
+	dta  0,$41
+	dta a(dl_main)
 txt_main1
-	.sbyte "  320x480i pic by Rybags, November 2009 "
+	dta d" 320x480i                               "
 blank40
-	.sbyte "                                        "
+	dta d"                                        "
 ;
 ; XDLs here
 ;
 xdl1
-	.byte $62 ; overlay, repeat, set overlay adr
-	.byte $88 ; set attrib, end XDL
-	.byte 239 ; Repeat 239 for 240 pixel screen height
-	.byte $00,$20,$00 ; First overlay Field 0 starts @ $02000 in VBXE RAM
-	.word 640 ; Step size 640 bytes for interlace
-	.byte $11 ; Attrib:  Normal width, use palette 1
-	.byte $DF ; Overlay has priority over all except PF1
-	.byte 0,0 ; filler
-xdl_length = *-xdl1
+	dta  $62 ; overlay, repeat, set overlay adr
+	dta  $88 ; set attrib, end XDL
+	dta  239 ; Repeat 239 for 240 pixel screen height
+	dta  $00,$20,$00 ; First overlay Field 0 starts @ $02000 in VBXE RAM
+	dta a(640) ; Step size 640 bytes for interlace
+	dta  $11 ; Attrib:  Normal width, use palette 1
+	dta  $DF ; Overlay has priority over all except PF1
+	dta  0,0 ; filler
+xdl_length equ *-xdl1
 ;
 xdl2
-	.byte $62 ; overlay, repeat, set overlay adr
-	.byte $88 ; set attrib, end XDL
-	.byte 239 ; Repeat 239 for 240 pixel screen height
-	.byte $40,$21,$00 ; First overlay Field 1 starts @ $02140 in VBXE RAM
-	.word 640 ; Step size 640 bytes for interlace
-	.byte $11 ; Attrib:  Normal width, use palette 1
-	.byte $DF ; Overlay has priority over all except PF1
-	.byte 0,0 ; filler
+	dta  $62 ; overlay, repeat, set overlay adr
+	dta  $88 ; set attrib, end XDL
+	dta  239 ; Repeat 239 for 240 pixel screen height
+	dta  $40,$21,$00 ; First overlay Field 1 starts @ $02140 in VBXE RAM
+	dta a(640) ; Step size 640 bytes for interlace
+	dta  $11 ; Attrib:  Normal width, use palette 1
+	dta  $DF ; Overlay has priority over all except PF1
+	dta  0,0 ; filler
 ;
+
+	ini $5800
+
+	icl '.tempimg256.asx'
+
+	ini $5809
+
+	ini $580c
