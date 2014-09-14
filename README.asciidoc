@@ -11,7 +11,9 @@ Usage
 Input files can be in JPEG, PNG, BMP or several other formats, see
 the http://freeimage.sourceforge.net/features.html[list of image formats supported by the FreeImage library].
 The images are automatically resized and converted to 256 colors and linked
-with code that displays them. The output files are in XEX format and can be
+with code that displays them. If you specify multiple input files, *ivbconv*
+will try to use all available CPU cores to speed up the conversion by
+processing multiple images in parallel. The output files are in XEX format and can be
 loaded directly from your favourite DOS.
 
 Available options:
@@ -38,16 +40,17 @@ The viewer uses original Gary Ryan's code with a few minor modifications.
 Each converted image is a DOS binary file, which can be loaded by typing
 L and entering the file name (DOS 2.5, MyDOS, etc.) or just typing the
 file name (SpartaDOS, DOS II+, etc.).
-
 Loading the image (especially through SIO) can take some time, and thus it
-can be aborted using the +ESC+ key.
+can be aborted by pressing the +ESC+ key.
 
-By default, the interlace should work well on most CRT TV sets and
+VBXE registers can be located at $D640 or $D740 and their location is
+detected automatically.
+The default interlace scheme should work well on most CRT TV sets and
 monitors. On LCDs, it may show lines in incorrect order (use +O+ and +I+ keys
-to adjust, hoping that one of these options will work for you)
+to adjust it, hoping that one of these options will work for you)
 or not work at all (which is a bit harder to adjust for).
 
-Pressing the +ESC+ key disables VBXE display and enters GR.0 mode.
+Pressing the +ESC+ key disables VBXE display, enters GR.0 mode and exits to DOS.
 
 Authors
 -------
