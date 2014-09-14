@@ -295,8 +295,8 @@ ubyte[] toAnticChars(string str, uint limit = 40)
 			app.put('T');
 		str = str[1 .. $];
 	}
-	if (app.data.length < 32)
-		foreach (i; 0 .. 32 - app.data.length)
+	if (app.data.length < limit)
+		foreach (i; 0 .. limit - app.data.length)
 			app.put(cast(ubyte) (' ' - 32));
 	return app.data;
 }
