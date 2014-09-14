@@ -1,5 +1,11 @@
-;
-	org $5800
+displayer     equ $3800
+pixels        equ $8000
+packed_pixels equ $9000
+palette       equ $3d00
+caption       equ $3cd8
+
+	org displayer
+
 ;
 ; Interlaced pic displayer
 ; 
@@ -59,15 +65,138 @@ vb_memac_control equ $5e ; MEMAC A Control
 vb_memac_bank_sel equ $5f ; Bank select for MEMAC A
 
 ;
+; FlashPack variables
+;
+fp21_ff	equ	$fc
+fp21_bt	equ	$fd
+fp21_ad	equ	$fe
+
+;
 ; Jump tables
 ;
 	jmp init1
 	jmp init_palette
+	jmp unpack_inc_bank
 	jmp inc_bank
 	jmp setup_interlace
 	jmp display_pic
 ;
-	pla ; for BASIC
+
+dl_vbfound
+	dta  $70,$70,$70,$70,$70
+	dta  $46
+	dta  a(txt_vbfound)
+	dta  $41
+	dta  a(dl_vbfound)
+txt_vbfound
+	dta d" VBXE FOUND AT $D640"
+foundat_txt equ *-3
+;
+; DList for when picture is displayed
+;
+dl_main
+	dta  112,112,$f0,112,112 ; DLI1 here
+	dta  112,112,112,112,112
+	dta  112,112,112,112,112
+	dta  112,112,112,112,112
+	dta  112,112,112,112,112
+	dta  112,112,112 ; 28 blank chr rows
+	dta  $c2 ; LMS 2
+	dta  a(caption)
+	dta  $cf ; LMS F
+	dta a(blank40)
+	dta  0,$41
+	dta a(dl_main)
+blank40
+	dta d"                                        "
+;
+; XDLs here
+;
+xdl1
+	dta  $62 ; overlay, repeat, set overlay adr
+	dta  $88 ; set attrib, end XDL
+	dta  239 ; Repeat 239 for 240 pixel screen height
+	dta  $00,$20,$00 ; First overlay Field 0 starts @ $02000 in VBXE RAM
+	dta a(640) ; Step size 640 bytes for interlace
+	dta  $11 ; Attrib:  Normal width, use palette 1
+	dta  $DF ; Overlay has priority over all except PF1
+	dta  0,0 ; filler
+xdl_length equ *-xdl1
+;
+xdl2
+	dta  $62 ; overlay, repeat, set overlay adr
+	dta  $88 ; set attrib, end XDL
+	dta  239 ; Repeat 239 for 240 pixel screen height
+	dta  $40,$21,$00 ; First overlay Field 1 starts @ $02140 in VBXE RAM
+	dta a(640) ; Step size 640 bytes for interlace
+	dta  $11 ; Attrib:  Normal width, use palette 1
+	dta  $DF ; Overlay has priority over all except PF1
+	dta  0,0 ; filler
+;
+
+	ert *>displayer+$400
+
+fp21_dep1
+	tax
+	beq	fp21_exit
+	lda	#$7f
+fp21_dep2
+	bcc	*+3
+	inx
+	inx
+	sta	fp21_ad
+fp21_dep3
+	lda	(fp21_ad),y
+fp21_put
+	sta	$8080,y
+	iny
+	bne	fp21_dep4
+	inc	fp21_ad+1
+	inc	fp21_put+2
+fp21_dep4
+	dex
+	bne	fp21_dep3
+	asl	fp21_bt
+	bne	fp21_dep7
+	asl	fp21_ff
+	bne	fp21_dep5
+
+fp21_start
+	sec
+	jsr	fp21_get
+	rol	@
+	sta	fp21_ff
+fp21_dep5
+	lda	#1
+	bcc	fp21_dep6
+	jsr	fp21_get
+	rol	@
+fp21_dep6
+	sta	fp21_bt
+fp21_dep7
+	jsr	fp21_get
+	ldx	#1
+	bcc	fp21_put
+	lsr	@
+	bne	fp21_dep2
+	jsr	fp21_get
+	bcs	fp21_dep1
+	tay
+	jsr	fp21_get
+	sta	fp21_ad+1
+	sta	fp21_put+2
+	bcc	fp21_dep7 !
+
+fp21_get
+	lda	packed_pixels
+	inc	fp21_get+1
+	bne	fp21_ret
+	inc	fp21_get+2
+fp21_ret
+fp21_exit
+	rts
+
+;
 setup_interlace
 	cld
 	lda #0
@@ -83,7 +212,7 @@ setup_interlace
 	sty $223
 	lda #$40
 	sta nmien
-	rts
+	jmp display_pic
 ;
 waitvc
 	cmp vcount
@@ -223,11 +352,12 @@ doscreen
 	iny
 	sta (vbxe),y
 	rts
-; bitmap_table	dta a($7000,$8000)
+
 fieldswap  dta  0
 choffset   dta  0
 savesdmctl dta  0
 load_count  dta  2 ; load counter for 4K segments
+
 ; mpindex	dta  0
 ; message_end_ptr dta a(0)
 ; scrollspeed	dta  0
@@ -269,6 +399,8 @@ dli_last
 xdl_table
 	dta  0,0,0,0 ; first xdl at $000000
 	dta  0,2,0,0 ; second xdl at $000200
+
+old_vblank dta a(0)
 ;
 ; INIT segment for multipart load of BMPs for VBXE
 ;
@@ -276,9 +408,14 @@ init1
 	lda #$40
 	sta nmien
 	lda #0
+	sta 712
 	sta colbak
 	sta vbxe
 	sta vbxe+1 ; Assume no VBXE installed for now
+	lda $222
+	sta old_vblank
+	lda $223
+	sta old_vblank+1
 	ldy #$d6
 	ldx $d640
 	inx
@@ -286,13 +423,20 @@ init1
 	ldx $d740
 	inx
 	bne found_d7
-; Not found - display message and loop
-	ldx #<dl_vbnotfound
-	ldy #>dl_vbnotfound
-	stx sdslst
-	sty sdslst+1
-vbxe_notfound
-	jmp vbxe_notfound
+; Not found - display message
+	ldx #0
+	lda #9
+	sta $342,x
+	sta $349,x
+	lda #<txt_vbnotfound
+	sta $344,x
+	lda #>txt_vbnotfound
+	sta $345,x
+	jsr $e456
+	jmp ($0a)
+txt_vbnotfound
+	dta c"VBXE not found.",$9b
+
 found_d7
 	inc foundat_txt
 	iny
@@ -302,8 +446,8 @@ found_d6
 	ldy #>dl_vbfound
 	stx sdslst
 	sty sdslst+1
-	ldy #0
-	tya
+	lda #0
+	ldy #vb_video_control
 	sta (vbxe),y ; Clear any current VBXE modes
 	ldy #vb_memac_b_control
 	sta (vbxe),y ; Clear any MEMAC_B access modes
@@ -327,22 +471,22 @@ clear_vbxe_ram
 	lda #0
 	tax
 clear_vbxe2
-	sta $8000,x
-	sta $8100,x
-	sta $8200,x
-	sta $8300,x
-	sta $8400,x
-	sta $8500,x
-	sta $8600,x
-	sta $8700,x
-	sta $8800,x
-	sta $8900,x
-	sta $8a00,x
-	sta $8b00,x
-	sta $8c00,x
-	sta $8d00,x
-	sta $8e00,x
-	sta $8f00,x
+	sta pixels+$000,x
+	sta pixels+$100,x
+	sta pixels+$200,x
+	sta pixels+$300,x
+	sta pixels+$400,x
+	sta pixels+$500,x
+	sta pixels+$600,x
+	sta pixels+$700,x
+	sta pixels+$800,x
+	sta pixels+$900,x
+	sta pixels+$a00,x
+	sta pixels+$b00,x
+	sta pixels+$c00,x
+	sta pixels+$d00,x
+	sta pixels+$e00,x
+	sta pixels+$f00,x
 	inx
 	bne clear_vbxe2
 	iny
@@ -350,7 +494,7 @@ clear_vbxe2
 	bcc clear_vbxe_ram ; Clear ~ 160K of Video RAM
 	rts ; Continue picture load
 ; 
-; INIT segment for Palette setup - palette loaded from $7000-72FF
+; INIT segment for Palette setup
 ;
 init_palette
 	ldy #vb_psel
@@ -361,13 +505,13 @@ init_palette
 	sta (vbxe),y ; Select colour 1
 	ldx #0
 vbxe_setcolours1
-	lda $7000,x
+	lda palette+$000,x
 	ldy #vb_cr
 	sta (vbxe),y ; set Red
-	lda $7001,x
+	lda palette+$001,x
 	iny
 	sta (vbxe),y ; Set Green
-	lda $7002,x
+	lda palette+$002,x
 	iny
 	sta (vbxe),y ; Set Blue
 	inx
@@ -377,13 +521,13 @@ vbxe_setcolours1
 	bne vbxe_setcolours1
 	ldx #0
 vbxe_setcolours2
-	lda $7102,x
+	lda palette+$102,x
 	ldy #vb_cr
 	sta (vbxe),y ; Set Red
-	lda $7103,x
+	lda palette+$103,x
 	iny
 	sta (vbxe),y ; G
-	lda $7104,x
+	lda palette+$104,x
 	iny
 	sta (vbxe),y ; B
 	inx
@@ -393,13 +537,13 @@ vbxe_setcolours2
 	bne vbxe_setcolours2
 	ldx #0
 vbxe_setcolours3
-	lda $7204,x
+	lda palette+$204,x
 	ldy #vb_cr
 	sta (vbxe),y ; R
-	lda $7205,x
+	lda palette+$205,x
 	iny
 	sta (vbxe),y ; G
-	lda $7206,x
+	lda palette+$206,x
 	iny
 	sta (vbxe),y ; Set Blue
 	inx
@@ -422,10 +566,20 @@ vbxe_setcolours3
 	sta (vbxe),y ; Set Video Control
 	rts
 ;
-; Increment VBXE MEMAC Bank, used during pic load
+; Unpack segment of pixel data into RAMAC window
+; and increment VBXE MEMAC Bank, used during pic load.
 ; 4K segments load at $8000-8FFF into RAMAC window
 ;
+unpack_inc_bank
+	lda #<packed_pixels
+	sta fp21_get+1
+	lda #>packed_pixels
+	sta fp21_get+2
+	jsr fp21_start
 inc_bank
+	lda $d209
+	cmp #$1c  ; ESC
+	beq display_pic_stop
 	ldy vbxe_bank
 	iny
 	sty vbxe_bank
@@ -469,79 +623,45 @@ display_pic
 	sta colpf1
 display_pic_wait
 	lda $d209
+	cmp #$1c   ;ESC
+	bne display_pic_continue
+
+display_pic_stop
+	ldy #vb_video_control
+	lda #0
+	tax
+	sta (vbxe),y ; Clear any current VBXE modes
+	sta nmien
+	lda old_vblank
+	sta $222
+	lda old_vblank+1
+	sta $223
+	lda #$40
+	sta nmien
+	lda #12
+	sta $0342,x
+	jsr $e456
+	lda #3
+	sta $0342,x
+	sta $0349,x
+	lda #<ename
+	sta $0344,x
+	lda #>ename
+	sta $0345,x
+	jsr $e456
+	lda #$ff
+	sta $02fc
+	jmp ($0a)
+ename dta c'E:',$9b
+
+display_pic_continue
 	ldx #3
 	cmp #$08   ;'O'
 	sne:ldx #0
 	stx switchval+1
 	jmp display_pic_wait ; Just loop for now
 ;
-dl_vbnotfound
-	dta  $70,$70,$70,$70,$70
-	dta  $46
-	dta a(txt_vbnotfound)
-	dta  $40,6,$41
-	dta a(dl_vbnotfound)
-txt_vbnotfound
-	dta d"   vbxe not found   "
-	dta d"  PRESS RESET       "
-dl_vbfound
-	dta  $70,$70,$70,$70,$70
-	dta  $46
-	dta  a(txt_vbfound)
-	dta  $41
-	dta  a(dl_vbfound)
-txt_vbfound
-	dta d" VBXE FOUND AT $D640"
-foundat_txt equ *-3
-;
-; DList for when picture is displayed
-;
-dl_main
-	dta  112,112,$f0,112,112 ; DLI1 here
-	dta  112,112,112,112,112
-	dta  112,112,112,112,112
-	dta  112,112,112,112,112
-	dta  112,112,112,112,112
-	dta  112,112,112 ; 28 blank chr rows
-	dta  $c2 ; LMS 2
-	dta  a(txt_main1)
-	dta  $cf ; LMS F
-	dta a(blank40)
-	dta  0,$41
-	dta a(dl_main)
-txt_main1
-	dta d" 320x480i                               "
-blank40
-	dta d"                                        "
-;
-; XDLs here
-;
-xdl1
-	dta  $62 ; overlay, repeat, set overlay adr
-	dta  $88 ; set attrib, end XDL
-	dta  239 ; Repeat 239 for 240 pixel screen height
-	dta  $00,$20,$00 ; First overlay Field 0 starts @ $02000 in VBXE RAM
-	dta a(640) ; Step size 640 bytes for interlace
-	dta  $11 ; Attrib:  Normal width, use palette 1
-	dta  $DF ; Overlay has priority over all except PF1
-	dta  0,0 ; filler
-xdl_length equ *-xdl1
-;
-xdl2
-	dta  $62 ; overlay, repeat, set overlay adr
-	dta  $88 ; set attrib, end XDL
-	dta  239 ; Repeat 239 for 240 pixel screen height
-	dta  $40,$21,$00 ; First overlay Field 1 starts @ $02140 in VBXE RAM
-	dta a(640) ; Step size 640 bytes for interlace
-	dta  $11 ; Attrib:  Normal width, use palette 1
-	dta  $DF ; Overlay has priority over all except PF1
-	dta  0,0 ; filler
-;
+	ert *>caption
 
-	ini $5800
+	ini displayer
 
-	icl '.tempimg256.asx'
-
-	ini $5809
-
-	ini $580c
