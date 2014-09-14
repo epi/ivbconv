@@ -207,7 +207,7 @@ private Image preprocess(Image image)
 	enum black = 0;
 	int left = (320 - image.width) / 2;
 	int top = (480 - image.height) / 2;
-	image = image.enlargeCanvas(left, top, 320 - left - image.width, 0, black);
+	image = image.enlargeCanvas(left, top, 320 - left - image.width, 480 - top - image.height, black);
 
 	// convert to 256 colors, make sure color #0 is black
 	auto reservePalette = [ RGBQuad(0, 0, 0, 0) ];
