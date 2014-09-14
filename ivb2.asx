@@ -417,12 +417,12 @@ init1
 	lda $223
 	sta old_vblank+1
 	ldy #$d6
-	ldx $d640
-	inx
-	bne found_d6
 	ldx $d740
-	inx
-	bne found_d7
+	cpx #$10
+	beq found_d7
+	ldx $d640
+	cpx #$10
+	beq found_d6
 ; Not found - display message
 	ldx #0
 	lda #9
