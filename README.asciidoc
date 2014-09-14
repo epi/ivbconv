@@ -64,7 +64,19 @@ Gary Ryan::
 Piotr Fusik::
   FlashPack 2.1 depacker routine
 
+Sebastian Igielski::
+  Testing
+
 This software uses the FreeImage open source image library.
 See http://freeimage.sourceforge.net for details.
 FreeImage is used under the FIPL, version 1.0.
 
+History
+-------
+
+1.0.1 (2014-09-14)::
+  Fixed VBXE detection bug.
+  Fixed occasional garbage in captions and palette.
+
+1.0.0 (2014-09-14)::
+  Initial release.
