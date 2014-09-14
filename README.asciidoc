@@ -29,8 +29,8 @@ Available options:
   Overwrite existing files.
 -c _caption_, --caption=_caption_::
   Setup caption for the converted images. It will be displayed at the bottom
-  of the string. Its length can be up to 40 characters. The default caption
-  is the name of the original file. If you want no caption, use this option
+  of the screen. Its length can be up to 40 characters. The default caption
+  is the name of the original file. If you want no caption at all, use this option
   with an empty string, i.e. +-c ""+.
 
 Viewing images
