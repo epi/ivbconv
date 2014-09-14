@@ -28,7 +28,7 @@ progname  := ivbconv$(exesuf)
 dflags    := -release
 #dflags    := -g
 
-all: $(progname)
+all: $(progname) README.html
 .PHONY: all
 
 $(progname): $(src) ivb2.obx
@@ -37,7 +37,10 @@ $(progname): $(src) ivb2.obx
 ivb2.obx: ivb2.asx
 	xasm $< /o:$@
 
+README.html: README.asciidoc
+	asciidoc $<
+
 clean:
-	rm -f $(progname) ivbconv.o ivbconv.obj ivb2.obx
+	rm -f $(progname) ivbconv.o ivbconv.obj ivb2.obx README.html
 .PHONY: clean
 

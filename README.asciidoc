@@ -1,0 +1,67 @@
+ivbconv - picture converter for 320x480i mode in 256 colors on VBXE
+===================================================================
+
+Usage
+-----
+
+*ivbconv* is a command line tool. The invocation syntax is as follows:
+
+  ivbconv [options] input_file...
+
+Input files can be in JPEG, PNG, BMP or several other formats, see
+the http://freeimage.sourceforge.net/features.html[list of image formats supported by the FreeImage library].
+The images are automatically resized and converted to 256 colors and linked
+with code that displays them. The output files are in XEX format and can be
+loaded directly from your favourite DOS.
+
+Available options:
+
+-h, --help::
+  Display usage information
+-d _output_dir_::
+  Set output directory to _output_dir_. Without this option, the *.xex* file
+  will be created in the directory where the original image file is located.
+-v, --verbose::
+  Show what is being done.
+-f, --overwrite::
+  Overwrite existing files.
+-c _caption_, --caption=_caption_::
+  Setup caption for the converted images. It will be displayed at the bottom
+  of the string. Its length can be up to 40 characters. The default caption
+  is the name of the original file. If you want no caption, use this option
+  with an empty string, i.e. +-c ""+.
+
+Viewing images
+--------------
+
+The viewer uses original Gary Ryan's code with a few minor modifications.
+Each converted image is a DOS binary file, which can be loaded by typing
+L and entering the file name (DOS 2.5, MyDOS, etc.) or just typing the
+file name (SpartaDOS, DOS II+, etc.).
+
+Loading the image (especially through SIO) can take some time, and thus it
+can be aborted using the +ESC+ key.
+
+By default, the interlace should work well on most CRT TV sets and
+monitors. On LCDs, it may show lines in incorrect order (use +O+ and +I+ keys
+to adjust, hoping that one of these options will work for you)
+or not work at all (which is a bit harder to adjust for).
+
+Pressing the +ESC+ key disables VBXE display and enters GR.0 mode.
+
+Authors
+-------
+
+Adrian Matoga::
+  Programming
+
+Gary Ryan::
+  VBXE interlaced displayer code
+
+Piotr Fusik::
+  FlashPack 2.1 depacker routine
+
+This software uses the FreeImage open source image library.
+See http://freeimage.sourceforge.net for details.
+FreeImage is used under the FIPL, version 1.0.
+
