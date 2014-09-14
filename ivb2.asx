@@ -549,7 +549,7 @@ vbxe_setcolours3
 	inx
 	inx
 	inx
-	cpx #2
+	cpx #$fc
 	bne vbxe_setcolours3
 	ldy #2
 	sty vbxe_bank
