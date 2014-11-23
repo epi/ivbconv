@@ -18,7 +18,7 @@
 
 DMD := dmd
 
-src := ivbconv.d freeimage.d
+src := dos.d flashpack.d freeimage.d ivbconv.d outputformat.d vbxe.d
 
 BUILD_OS  := $(if $(WINDIR),windows,$(shell uname -s | tr A-Z a-z))
 
@@ -31,16 +31,19 @@ dflags    := -release
 all: $(progname) README.html
 .PHONY: all
 
-$(progname): $(src) ivb2.obx
+$(progname): $(src) ivb2.obx vb.obx ivb216.obx vb16.obx
 	$(DMD) $(src) -of$@ $(dflags) -J. $(ldflags)
 
-ivb2.obx: ivb2.asx
-	xasm $< /o:$@
+%.obx: %.asx
+	xasm $< /o:$@ /d:HIRES=0
+
+%16.obx: %.asx
+	xasm $< /o:$@ /d:HIRES=1
 
 README.html: README.asciidoc
 	asciidoc $<
 
 clean:
-	rm -f $(progname) ivbconv.o ivbconv.obj ivb2.obx README.html
+	rm -f $(progname) *.o *.obj *.obx README.html
 .PHONY: clean
 

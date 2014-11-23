@@ -7,7 +7,7 @@ caption       equ $3cd8
 	org displayer
 
 ;
-; Interlaced pic displayer
+; Non-Interlaced pic displayer
 ; 
 ; Uses Method 1 - do nothing on non-interlace fields
 ;
@@ -78,7 +78,7 @@ fp21_ad	equ	$fe
 	jmp init_palette
 	jmp unpack_inc_bank
 	jmp inc_bank
-	jmp setup_interlace
+	jmp display_pic
 	jmp display_pic
 ;
 
@@ -95,20 +95,13 @@ foundat_txt equ *-3
 ; DList for when picture is displayed
 ;
 dl_main
-	dta  112,112,$f0,112,112 ; DLI1 here
-	dta  112,112,112,112,112
-	dta  112,112,112,112,112
-	dta  112,112,112,112,112
-	dta  112,112,112,112,112
-	dta  112,112,112 ; 28 blank chr rows
+:28 dta  $70
+	dta  $60
 	dta  $c2 ; LMS 2
 	dta  a(caption)
-	dta  $cf ; LMS F
-	dta a(blank40)
 	dta  0,$41
 	dta a(dl_main)
-blank40
-	dta d"                                        "
+
 ;
 ; XDLs here
 ;
@@ -121,26 +114,11 @@ xdl1
 	eif
 	dta  239 ; Repeat 239 for 240 pixel screen height
 	dta  $00,$20,$00 ; First overlay Field 0 starts @ $02000 in VBXE RAM
-	dta a(640) ; Step size 640 bytes for interlace
+	dta a(320) ; Step size 320 bytes for no interlace
 	dta  $11 ; Attrib:  Normal width, use palette 1
 	dta  $DF ; Overlay has priority over all except PF1
 	dta  0,0 ; filler
 xdl_length equ *-xdl1
-;
-xdl2
-	dta  $62 ; overlay, repeat, set overlay adr
-	ift HIRES
-	dta  $98 ; set attrib, hr, end XDL
-	els
-	dta  $88 ; set attrib, end XDL
-	eif
-	dta  239 ; Repeat 239 for 240 pixel screen height
-	dta  $40,$21,$00 ; First overlay Field 1 starts @ $02140 in VBXE RAM
-	dta a(640) ; Step size 640 bytes for interlace
-	dta  $11 ; Attrib:  Normal width, use palette 1
-	dta  $DF ; Overlay has priority over all except PF1
-	dta  0,0 ; filler
-;
 
 	ert *>displayer+$400
 
@@ -204,163 +182,6 @@ fp21_ret
 fp21_exit
 	rts
 
-;
-setup_interlace
-	cld
-	lda #0
-	sta fieldswap
-	lda #8
-	jsr waitvc
-	jsr waitvc ; Wait at least 1 frame
-	lda #0
-	sta nmien
-	ldx #<vblank
-	ldy #>vblank
-	stx $222
-	sty $223
-	lda #$40
-	sta nmien
-	jmp display_pic
-;
-waitvc
-	cmp vcount
-	bne waitvc
-	rts
-vblank
-	lda #0
-	sta attract
-	lda #$c0
-	sta nmien
-	jsr doscreen
-; Do colours and DList pointer in case Stage 2 is skipped
-	ldx #4
-vb_setcolours
-	lda $2c4,x
-	sta $d016,x
-	dex
-	bpl vb_setcolours
-	lda sdslst+1
-	sta dlisth
-	lda sdslst
-	sta dlistl
-	ldx #<dli1
-	ldy #>dli1
-	stx $200
-	sty $201
-	lda 20
-	tax
-	and #1
-	eor fieldswap
-	asl @
-	asl @
-	sta choffset ; Chbase offset
-	txa
-	lsr @
-	bcc vblank2
-	jmp vblankend
-vblank2
-	ldy #$88
-	lda pal
-	cmp #$f ; Are we NTSC ?
-	bne not_ntsc
-	ldy #$7e
-not_ntsc
-	tya
-	jsr waitvc
-	lda #0
-	sta $d017
-	sta $d018
-	sta $d01a
-	sta wsync
-;	sta porta
-switchval equ *
-	ldy #3
-	sta wsync
-	sta porta
-	sta wsync
-; first line of vsync... half line at blanking level, second half at sync level
-	nop ; 105
-	sty dmactl ; 109
-	ldx #7 ; 111
-; Refresh cycles 26 30 34 38 42 46 50 54 58
-vbwait1
-	dex
-	bne vbwait1 ; 5*X-1=34=31 (+2 Ref)= 33
-	ldx #3 ; 36 (1)
-	nop ; 39 (1)
-	nop ; 41
-	nop ; 44 (1)
-	nop ; 47 (1)
-	sta dmactl ; 52 (1)
-	nop ; 55 (1)
-	nop ; 57 
-	stx vscount ; 61 (1)
-	ldx #7 ; 63
-; Refresh cycles 26 30 34 38 42 46 50 54 58
-vbloop1
-vbwait3
-	dex
-	bne vbwait3 ; 5*X-1 = 34 = 97, 
-	sty dmactl ; 101 get HSync pulses back in normal order
-	nop ; 103
-	nop ; 105
-	nop ; 107
-	sta dmactl ; 111
-	dec vscount ; 116 = 2
-	beq vsyncend ; 4
-	ldx #5 ; 6
-vbwait2
-	dex
-	bne vbwait2 ; 5*X-1 = 24 (+ 2 Ref) = 32
-	ldx #6 ; 35 (1)
-	nop ; 37
-	nop ; 40 (1)
-	sty dmactl ; 45 (1)
-	sta dmactl ; 51 (2)
-	nop ; 53
-	nop ; 56 (1)
-	nop ; 59 (1)
-	nop ; 61
-	nop ; 63
-	nop ; 65
-	jmp vbloop1 ; 68 
-; Refresh cycles 26 30 34 38 42 46 50 54 58
-vsyncend
-	lda #1
-	jsr waitvc
-vblankend
-	lda sdmctl
-	sta savesdmctl
-	lda #$20
-	sta sdmctl
-	sta dmactl
-	lda #$80
-	sta wsync
-;	sta porta
-	dta  234,234,234,234
-	dta  234,234,234,234
-	dta  234,234,234,234
-	jmp $e45f
-;
-; Switch screen base
-;
-doscreen
-	lda 20
-	and #1
-	asl @
-	asl @
-	tax
-	ldy #vb_xdl_adr
-	lda xdl_table,x
-	sta (vbxe),y
-	lda xdl_table+1,x
-	iny
-	sta (vbxe),y
-	lda xdl_table+2,x
-	iny
-	sta (vbxe),y
-	rts
-
 fieldswap  dta  0
 choffset   dta  0
 savesdmctl dta  0
@@ -390,40 +211,25 @@ dli1
 ; DLI for bottom of screen - enact Scanline 240 bug
 ;
 dli_last
-	pha
-	lda #0
-	sta wsync
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	sta dmactl
-	pla
 	rti
 ;
 xdl_table
 	dta  0,0,0,0 ; first xdl at $000000
-	dta  0,2,0,0 ; second xdl at $000200
 
-old_vblank dta a(0)
 ;
 ; INIT segment for multipart load of BMPs for VBXE
 ;
 init1
 	lda #$40
 	sta nmien
+	lda #12
+	sta 709
+	sta colpf1
 	lda #0
 	sta 712
 	sta colbak
 	sta vbxe
 	sta vbxe+1 ; Assume no VBXE installed for now
-	lda $222
-	sta old_vblank
-	lda $223
-	sta old_vblank+1
 	ldy #$d6
 	ldx $d740
 	cpx #$10
@@ -469,8 +275,6 @@ found_d6
 copyxdl
 	lda xdl1,x
 	sta $8000,x
-	lda xdl2,x
-	sta $8200,x
 	dex
 	bpl copyxdl ; Copy XDLs to VBXE @ $0000 and $0200
 	ldy #1
@@ -498,8 +302,8 @@ clear_vbxe2
 	inx
 	bne clear_vbxe2
 	iny
-	cpy #40
-	bcc clear_vbxe_ram ; Clear ~ 160K of Video RAM
+	cpy #21
+	bcc clear_vbxe_ram ; Clear ~ 80K of Video RAM
 	rts ; Continue picture load
 ; 
 ; INIT segment for Palette setup
@@ -598,12 +402,6 @@ inc_bank
 	ldy #>dl_main
 	stx sdslst
 	sty sdslst+1
-	lda #$d8
-	sta colpf1
-	lda #8
-	jsr waitvc
-	lda #7
-	jsr waitvc
 inc_bank_end
 	rts
 
@@ -627,9 +425,17 @@ display_pic
 	ldy #>dl_main
 	stx sdslst
 	sty sdslst+1
-	lda #$d8
-	sta colpf1
+	lda #12
+	sta 709
+	ldy #vb_xdl_adr
+	lda #0
+	sta 712
+	sta (vbxe),y+
+	sta (vbxe),y+
+	sta (vbxe),y
 display_pic_wait
+	lda #0
+	sta attract
 	lda $d209
 	cmp #$1c   ;ESC
 	bne display_pic_continue
@@ -639,13 +445,6 @@ display_pic_stop
 	lda #0
 	tax
 	sta (vbxe),y ; Clear any current VBXE modes
-	sta nmien
-	lda old_vblank
-	sta $222
-	lda old_vblank+1
-	sta $223
-	lda #$40
-	sta nmien
 	lda #12
 	sta $0342,x
 	jsr $e456
@@ -663,13 +462,8 @@ display_pic_stop
 ename dta c'E:',$9b
 
 display_pic_continue
-	ldx #3
-	cmp #$08   ;'O'
-	sne:ldx #0
-	stx switchval+1
 	jmp display_pic_wait ; Just loop for now
 ;
 	ert *>caption
 
 	ini displayer
-

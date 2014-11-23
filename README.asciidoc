@@ -1,5 +1,5 @@
-ivbconv - picture converter for 320x480i mode in 256 colors on VBXE
-===================================================================
+ivbconv - picture converter for VBXE 256-color mode
+===================================================
 
 Usage
 -----
@@ -19,9 +19,13 @@ loaded directly from your favourite DOS.
 Available options:
 
 -h, --help::
-  Display usage information
+  Display usage information.
+-t, --dither::
+  Enable dithering (Floyd-Steinberg).
+-O _output_format_::
+  Set the output format to _output_format_. See <<output_formats,Output formats>>.
 -d _output_dir_::
-  Set output directory to _output_dir_. Without this option, the *.xex* file
+  Set output directory to _output_dir_. Without this option, the output file
   will be created in the directory where the original image file is located.
 -v, --verbose::
   Show what is being done.
@@ -52,6 +56,22 @@ or not work at all (which is a bit harder to adjust for).
 
 Pressing the +ESC+ key disables VBXE display, enters GR.0 mode and exits to DOS.
 
+[[output_formats]]
+Output formats
+--------------
+
+vb::
+  VBXE, 320x240, 256 colors
+
+vb16::
+  VBXE, 640x240, 16 colors
+
+ivb::
+  VBXE, 320x480i, 256 colors
+
+ivb16::
+  VBXE, 640x480i, 16 colors
+
 Authors
 -------
 
@@ -73,6 +93,11 @@ FreeImage is used under the FIPL, version 1.0.
 
 History
 -------
+
+1.1.0 (2014-11-23)::
+  Added option to choose output format.
+  Added non-interlaced and hi-res VBXE output formats.
+  Added dithering option.
 
 1.0.1 (2014-09-14)::
   Fixed VBXE detection bug.
