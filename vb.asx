@@ -8,9 +8,10 @@ caption       equ $3cd8
 
 ;
 ; Non-Interlaced pic displayer
-; 
+;
 ; Uses Method 1 - do nothing on non-interlace fields
 ;
+dosvec  equ $0a
 brkflag	equ $11
 attract	equ $4d
 ramtop	equ $6a
@@ -22,7 +23,8 @@ vscount	equ $04 ; must be zero-page (timing)
 sdmctl	equ $22f
 sdslst	equ $230
 gprior	equ $26f
-chbas equ $2f4
+chbas   equ $2f4
+ch      equ $2fc
 ichid	equ $340
 iccom	equ $342
 icba	equ $344
@@ -47,6 +49,8 @@ chbase	equ $d409
 wsync	equ $d40a
 vcount	equ $d40b
 nmien	equ $d40e
+
+ciov    equ $e456
 ;
 ; VBXE stuff
 vbxe	equ $cb ; Pointer to VBXE page (=$d600 or $d700)
@@ -246,8 +250,8 @@ init1
 	sta $344,x
 	lda #>txt_vbnotfound
 	sta $345,x
-	jsr $e456
-	jmp ($0a)
+	jsr ciov
+	jmp (dosvec)
 txt_vbnotfound
 	dta c"VBXE not found.",$9b
 
@@ -304,8 +308,11 @@ clear_vbxe2
 	iny
 	cpy #21
 	bcc clear_vbxe_ram ; Clear ~ 80K of Video RAM
+
+	lda #$ff
+	sta ch
 	rts ; Continue picture load
-; 
+;
 ; INIT segment for Palette setup
 ;
 init_palette
@@ -389,9 +396,9 @@ unpack_inc_bank
 	sta fp21_get+2
 	jsr fp21_start
 inc_bank
-	lda $d209
-	cmp #$1c  ; ESC
-	beq display_pic_stop
+	lda ch
+	cmp #$ff  ; Any key?
+	bne display_pic_stop
 	ldy vbxe_bank
 	iny
 	sty vbxe_bank
@@ -434,20 +441,22 @@ display_pic
 	sta (vbxe),y+
 	sta (vbxe),y
 display_pic_wait
-	lda #0
-	sta attract
-	lda $d209
-	cmp #$1c   ;ESC
-	bne display_pic_continue
+	lda ch
+	cmp #$ff   ;Any key?
+	beq display_pic_continue
 
 display_pic_stop
-	ldy #vb_video_control
 	lda #0
 	tax
+	ldy #vb_video_control
 	sta (vbxe),y ; Clear any current VBXE modes
+	ldy #vb_memac_b_control
+	sta (vbxe),y ; Clear memory access window B
+	ldy #vb_memac_control
+	sta (vbxe),y ; Clear memory access window A
 	lda #12
 	sta $0342,x
-	jsr $e456
+	jsr ciov
 	lda #3
 	sta $0342,x
 	sta $0349,x
@@ -455,10 +464,10 @@ display_pic_stop
 	sta $0344,x
 	lda #>ename
 	sta $0345,x
-	jsr $e456
+	jsr ciov
 	lda #$ff
-	sta $02fc
-	jmp ($0a)
+	sta ch
+	jmp (dosvec)
 ename dta c'E:',$9b
 
 display_pic_continue
