@@ -22,7 +22,7 @@ module freeimage;
 import std.conv;
 import std.exception;
 import std.string;
-import std.c.stdlib;
+import core.stdc.stdlib;
 
 private
 {

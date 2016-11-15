@@ -22,6 +22,7 @@
 import std.algorithm;
 import std.array;
 import std.ascii;
+import std.file;
 import std.getopt;
 import std.path;
 import std.parallelism;
