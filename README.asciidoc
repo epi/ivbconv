@@ -79,7 +79,10 @@ Adrian Matoga::
   Programming
 
 Gary Ryan::
-  VBXE interlaced displayer code
+  VBXE interlaced display routine
+
+Peter Dell::
+  Display routine patches
 
 Piotr Fusik::
   FlashPack 2.1 depacker routine
@@ -93,6 +96,10 @@ FreeImage is used under the FIPL, version 1.0.
 
 History
 -------
+
+1.1.1 (2017-12-08)::
+  Reset MEMAC registers at the end.
+  Exit on any key, not just ESC.
 
 1.1.0 (2014-11-23)::
   Added option to choose output format.
